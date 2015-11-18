@@ -1,0 +1,86 @@
+---
+title: "Machine learning course project"
+author: "Mari Dervish"
+date: "Tuesday, November 17, 2015"
+output: html_document
+---
+```{r init,echo=FALSE}
+setwd("D:\\DataScientist\\MachineLearning\\CP")
+
+```
+# Overview
+Goal of this project is to predict manner of performing barbell lifts exercise using data from accelerometers on the belt, forearm, arm, and dumbell. Data for model building is taken from Groupware@LES (http://groupware.les.inf.puc-rio.br/har) and consists of records on performing this exercise in 5 different manners by 6 participants. Data is splitted into train and test datasets, this project uses only training part to  build a model.
+Final model is build with random forest method. It has accuracy 99.7% and out of sample error rate is estimated to be 0.06%.
+
+# Cleaning data
+
+Dataset consists of 19622 observations of 160 variables. Lots of observations have missing values which are not useful for model building and predictions. We need to eliminate variables which has no data but only has values NA, "", "#DIV/0!". Also first column 'X' represents number of observations and not related to manner of doing exercise, it will be removed from dataset for modelling.
+
+```{r data,echo=TRUE}
+dataTrain<-read.csv("./pml-training.csv")
+notNA<-colSums(is.na(dataTrain) | dataTrain=="#DIV/0!" | dataTrain=="")==0
+notNA[1]<-0
+names<-names(notNA[notNA==1])
+cleanData<-dataTrain[,names]
+dim(cleanData)
+```
+New dataset has only 59 variables.
+
+# Buildind machine learning algorithm
+
+```{r ml,echo=FALSE,message=FALSE}
+library(caret)
+```
+## Splitting training data into train and test datasets
+To avoid overfitting and to estimate out of sample error cleaned training data will be splitted into train and test parts (60%/40% respectively). Train part will be used to train model and test part only to test this model.
+```{r cross,echo=TRUE}
+inTrain<-createDataPartition(y=cleanData$classe, p=0.6, list=F)
+training<-cleanData[inTrain,]
+testing<-cleanData[-inTrain,]
+```
+
+## Building a model
+Model has to predict manner of performing an exercise (`classe` variable). This variable is a factor of 5 levels. In this case it doesn't make sence to build prediction based on GLM algorithm, as it is best for continius or binary outcome. Amount of evaluating predictors is quite big, this also leads to try random forests as algorithm for building prediction model.
+While training random forests it will be used 3-fold cross-validation for finding best predictors.
+```{r mod,echo=TRUE,cache=TRUE}
+set.seed(2525)
+model<-train(classe~.,data=training, method="rf", trControl=trainControl(method = "cv", number = 3, allowParallel=T))
+model$finalModel
+model
+```
+As we can see, in sample error is very small, accuracy is 99.7%. Model could be overfitted, to check this, model will be tested on testing dataset, which was splitted and left out before.
+
+##Testing prediction, out of sample error
+
+```{r pred,echo=TRUE,message=FALSE}
+pred<-predict(model,testing)
+cm<-table(pred,testing$classe)
+```
+Confusion matrix for testing dataset:
+```{r pred2,echo=FALSE}
+cm
+```
+Out of sample error estimate:
+```{r oos,echo=TRUE}
+oos<-(sum(cm)-sum(diag(cm)))/sum(cm)
+oos
+```
+Our estimate of OOS error is very small, which makes feel confident about chosen model.
+
+##Validation of model on 20 test observation
+
+Provided data contains test dataset (consists of 20 observations) which we never used in model tuning and testing. Now we will test our model on this data. Assignment asks to write each prediction into separate txt file.
+
+```{r test,echo=TRUE, eval=FALSE}
+dataTest<-read.csv("./pml-testing.csv")
+predTest<-predict(model,dataTest)
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0("problem_id_",i,".txt")
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+pml_write_files(predtest)
+```
+After submitting predictions I've got 20 out of 20 correct answers.
