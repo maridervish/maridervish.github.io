@@ -1,2 +1,2 @@
-# maridervish.github.io
-gh-pages
+# Link to project:
+http://maridervish.github.io/CP.html
